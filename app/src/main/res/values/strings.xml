@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Navisens provider demo</string>
+    <string name="latitude">Latitude :</string>
+    <string name="longitude">Longitude :</string>
+</resources>
