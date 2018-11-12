@@ -1,3 +1,7 @@
+# Navisens project for Smart Trolley Research
+All text below are directly copied from Navisens' original readme. 
+I have edited this repo [Navisens](https://github.com/IndoorLocation/navisens-indoor-location-provider-android). and adding more functionality to it.
+
 # Navisens IndoorLocation Provider for Android
 
 IndoorLocation Provider using MotionDNA SDK from [Navisens](https://www.navisens.com). Track phone motion using the built-in accelerometers and gyroscopes.
