@@ -1,6 +1,6 @@
 # Navisens project for Smart Trolley Research
 All text below are directly copied from Navisens' original readme. 
-I have edited this repo [Navisens](https://github.com/IndoorLocation/navisens-indoor-location-provider-android). and adding more functionality to it.
+I have edited this repo [Navisens IndoorLocation Provider](https://github.com/IndoorLocation/navisens-indoor-location-provider-android). and adding more functionality to it.
 
 # Navisens IndoorLocation Provider for Android
 
