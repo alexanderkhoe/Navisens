@@ -1,10 +1,8 @@
 package io.indoorlocation.navisens.demoapp;
 
 import android.Manifest;
-import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Location;
-import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -17,7 +15,6 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.maps.MapView;
-import com.navisens.motiondnaapi.MotionDna;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -43,13 +40,9 @@ public class MapActivity extends AppCompatActivity {
     public TextView currentLat;
     public TextView currentLon;
 
-    private double cLat;
-    private double cLon;
+    private double lat, lon;
 
     private FusedLocationProviderClient mFusedLocationClient;
-
-    private MotionDna.Location mLocation;
-    private MotionDna mMotionDna;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -63,25 +56,6 @@ public class MapActivity extends AppCompatActivity {
         mapView.setStyleUrl(DemoApplication.MAPWIZE_STYLE_URL_BASE + AccountManager.getInstance().getApiKey());
         MapOptions opts = new MapOptions.Builder().build();
         mapwizePlugin = new MapwizePlugin(mapView, opts);
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION_PERMISSION);
-        }
-        mFusedLocationClient.getLastLocation()
-                .addOnSuccessListener(this, new OnSuccessListener<Location>() {
-                    @Override
-                    public void onSuccess(Location location) {
-                        // Got last known location. In some rare situations this can be null.
-                        if (location != null) {
-                            // Logic to handle location object
-                            currLat = Double.toString(location.getLatitude());
-                            currLon = Double.toString(location.getLongitude());
-                            currentLat.setText(currLat);
-                            currentLon.setText(currLon);
-                            cLat = location.getLatitude();
-                            cLon = location.getLongitude();
-                        }
-                    }
-                });
         mapwizePlugin.setOnDidLoadListener(plugin -> {
             requestLocationPermission();
         });
@@ -90,6 +64,7 @@ public class MapActivity extends AppCompatActivity {
             manualIndoorLocationProvider.dispatchIndoorLocationChange(indoorLocation);
 
         });
+
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
@@ -107,28 +82,20 @@ public class MapActivity extends AppCompatActivity {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION_PERMISSION);
         }
-//        if(mLocation!=null&&(mLocation.globalLocation.latitude!=0.0&&mLocation.globalLocation.longitude!=0.0)){
-//            currLat = Double.toString(mLocation.globalLocation.latitude);
-//            currLon = Double.toString(mLocation.globalLocation.longitude);
-//            currentLat.setText(currLat);
-//            currentLon.setText(currLon);
-//        }
         mFusedLocationClient.getLastLocation()
                 .addOnSuccessListener(this, new OnSuccessListener<Location>() {
                     @Override
                     public void onSuccess(Location location) {
-                        // Got last known location. In some rare situations this can be null.
                         if (location != null) {
-                            // Logic to handle location object
                             currLat = Double.toString(location.getLatitude());
                             currLon = Double.toString(location.getLongitude());
                             currentLat.setText(currLat);
                             currentLon.setText(currLon);
-                            cLat = location.getLatitude();
-                            cLon = location.getLongitude();
+                            lat = location.getLatitude();
+                            lon = location.getLongitude();
                         }
                     }
-                });//coba lagi kode yang ini, apa bisa buat update secara berkala
+                });
     }
     private void setupLocationProvider() {
         manualIndoorLocationProvider = new ManualIndoorLocationProvider();

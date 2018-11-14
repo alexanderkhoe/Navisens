@@ -110,8 +110,9 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
             mMotionDna.setCallbackUpdateRateInMs(mUpdateRate);
             mMotionDna.setPowerMode(mPowerMode);
             try {
-                mMotionDna.setLocationGPSOnly();
-                Thread.sleep(1000);
+                mMotionDna.setLocationGPSOnly();//ada salah di sini, user marker berjalan berlawanan sama arah jalan
+
+                Thread.sleep(10000);
                 mMotionDna.setLocationNavisens();//improve loading time dari sini, coba coba lagi untuk bisa set location
 
             } catch (InterruptedException e) {//dengan cepat dan tanpa delay 15 detik
@@ -141,6 +142,9 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
         mCurrentFloor = (double)location.floor;
         IndoorLocation indoorLocation = new IndoorLocation(getName(), location.globalLocation.latitude, location.globalLocation.longitude, mCurrentFloor, System.currentTimeMillis());
         dispatchIndoorLocationChange(indoorLocation);
+        if(indoorLocation.getLatitude()!= 0 && indoorLocation.getLongitude()!=0){
+            dispatchIndoorLocationChange(indoorLocation);
+        }
     }
 
     @Override
