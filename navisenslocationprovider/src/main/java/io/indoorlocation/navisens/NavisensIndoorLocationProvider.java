@@ -110,13 +110,12 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
             mMotionDna.setCallbackUpdateRateInMs(mUpdateRate);
             mMotionDna.setPowerMode(mPowerMode);
             try {
-                mMotionDna.setLocationGPSOnly();//ada salah di sini, user marker berjalan berlawanan sama arah jalan
-
-                Thread.sleep(10000);
+                mMotionDna.setLocationGPSOnly();//di sini perlu calibrate dengan cara berjalan jalan di tempat untuk beberapa lama.
+                Thread.sleep(9000);//baru nanti indoor positioningnya bisa bekerja
                 mMotionDna.setLocationNavisens();//improve loading time dari sini, coba coba lagi untuk bisa set location
 
-            } catch (InterruptedException e) {//dengan cepat dan tanpa delay 15 detik
-                e.printStackTrace();//lalu cari cara untuk langsung set viewnya ke current location
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }//kode ini sekarang cuma bisa buat view ke atas world map, untuk zoomnya harus klik re-center button
 
         }
@@ -189,6 +188,6 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
 
     @Override
     public void onIndoorLocationChange(IndoorLocation indoorLocation) {
-        setIndoorLocation(indoorLocation);
+        dispatchIndoorLocationChange(indoorLocation);
     }
 }
