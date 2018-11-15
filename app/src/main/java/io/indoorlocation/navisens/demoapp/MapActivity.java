@@ -45,8 +45,6 @@ public class MapActivity extends AppCompatActivity {
     public TextView currentLon;
 
     private double lat, lon;
-
-    LatLng currLatLng;
     private FusedLocationProviderClient mFusedLocationClient;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,15 +61,6 @@ public class MapActivity extends AppCompatActivity {
         mapwizePlugin = new MapwizePlugin(mapView, opts);
         mapwizePlugin.setOnDidLoadListener(plugin -> {
             requestLocationPermission();
-            mapView.getMapAsync(new OnMapReadyCallback() {
-                @Override
-                public void onMapReady(MapboxMap mapboxMap) {
-                    mapboxMap.setCameraPosition(new CameraPosition.Builder()
-                            .target(currLatLng)
-                            .zoom(20)
-                            .build());
-                }
-            });
         });
         mapwizePlugin.setOnMapClickListener(latLngFloor -> {
             IndoorLocation indoorLocation = new IndoorLocation(manualIndoorLocationProvider.getName(), latLngFloor.getLatitude(), latLngFloor.getLongitude(), latLngFloor.getFloor(), System.currentTimeMillis());
@@ -107,7 +96,6 @@ public class MapActivity extends AppCompatActivity {
                             currentLon.setText(currLon);
                             lat = location.getLatitude();
                             lon = location.getLongitude();
-                            currLatLng = new LatLng(lat,lon);
                         }
                     }
                 });
