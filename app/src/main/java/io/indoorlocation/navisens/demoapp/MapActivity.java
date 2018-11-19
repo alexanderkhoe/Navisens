@@ -19,6 +19,8 @@ import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
+import com.navisens.pojostick.navisenscore.NavisensCore;
+import com.navisens.pojostick.navishare.NaviShare;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -45,12 +47,17 @@ public class MapActivity extends AppCompatActivity {
     public TextView currentLon;
 
     private double lat, lon;
+
     private FusedLocationProviderClient mFusedLocationClient;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Mapbox.getInstance(this, DemoApplication.MAPBOX_ACCESS_TOKEN);
         setContentView(R.layout.activity_map);
+//        NavisensCore core = new NavisensCore(DemoApplication.NAVISENS_API_KEY, MapActivity.this);
+//        NaviShare share = core.init(NaviShare.class);
+//        share.testConnect();//kalau ditambah 3 line ini, nggak mau nge-compile
+        //coba cari cara lain untuk sharing indoor location supaya bisa dipake untuk smart trolley
         currentLat = findViewById(R.id.currentLat);
         currentLon = findViewById(R.id.currentLon);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -60,8 +67,10 @@ public class MapActivity extends AppCompatActivity {
         MapOptions opts = new MapOptions.Builder().build();
         mapwizePlugin = new MapwizePlugin(mapView, opts);
         mapwizePlugin.setOnDidLoadListener(plugin -> {
-            requestLocationPermission();
-        });
+            requestLocationPermission();//kayaknya nggak bisa ditambahin auto-mapview change buat code ini
+        });//kalau ditambahin auto-mapview change, nanti indoor navigationnya nggak jalan
+        //ada kemungkinan app mapwize yang di playstore berpengaruh ke app ini
+        //kalau langsung run app ini, ada chance mapview dan user marker yang ada malah berjalan berlawanan dengan arah kita berjalan
         mapwizePlugin.setOnMapClickListener(latLngFloor -> {
             IndoorLocation indoorLocation = new IndoorLocation(manualIndoorLocationProvider.getName(), latLngFloor.getLatitude(), latLngFloor.getLongitude(), latLngFloor.getFloor(), System.currentTimeMillis());
             manualIndoorLocationProvider.dispatchIndoorLocationChange(indoorLocation);

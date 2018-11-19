@@ -187,6 +187,7 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
 
     @Override
     public void onIndoorLocationChange(IndoorLocation indoorLocation) {
+        setIndoorLocation(indoorLocation);
         dispatchIndoorLocationChange(indoorLocation);
     }
 }
