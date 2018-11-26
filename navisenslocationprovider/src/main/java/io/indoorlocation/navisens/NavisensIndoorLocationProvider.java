@@ -110,12 +110,12 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
             mMotionDna.setCallbackUpdateRateInMs(mUpdateRate);
             mMotionDna.setPowerMode(mPowerMode);
             try {
-                mMotionDna.setLocationGPSOnly();//di sini perlu calibrate dengan cara berjalan jalan di tempat untuk beberapa lama.
-                Thread.sleep(15000);//baru nanti indoor positioningnya bisa bekerja
-                mMotionDna.setLocationNavisens();//improve loading time dari sini, coba coba lagi untuk bisa set location
+                mMotionDna.setLocationGPSOnly();//kelihatannya perlu berjalan sekitar 10 meter atau lebih untuk calibrate
+                Thread.sleep(15000);//kalau udah jalan, untuk beberapa jam kedepan, GPS positioningnya bakal ambil
+                mMotionDna.setLocationNavisens();//data dari calibration sebelumnya
             } catch (InterruptedException e) {
                 e.printStackTrace();
-            }//kode ini sekarang cuma bisa buat view ke atas world map, untuk zoomnya harus klik re-center button
+            }
 
         }
     }

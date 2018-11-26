@@ -14,13 +14,7 @@ import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.mapbox.mapboxsdk.Mapbox;
-import com.mapbox.mapboxsdk.camera.CameraPosition;
-import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.maps.MapView;
-import com.mapbox.mapboxsdk.maps.MapboxMap;
-import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
-import com.navisens.pojostick.navisenscore.NavisensCore;
-import com.navisens.pojostick.navishare.NaviShare;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -32,6 +26,7 @@ import io.indoorlocation.navisens.NavisensIndoorLocationProvider;
 import io.mapwize.mapwizeformapbox.AccountManager;
 import io.mapwize.mapwizeformapbox.MapOptions;
 import io.mapwize.mapwizeformapbox.MapwizePlugin;
+import io.mapwize.mapwizeformapbox.model.Direction;
 
 public class MapActivity extends AppCompatActivity {
 
@@ -48,16 +43,13 @@ public class MapActivity extends AppCompatActivity {
 
     private double lat, lon;
 
+    private Direction direction;
     private FusedLocationProviderClient mFusedLocationClient;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Mapbox.getInstance(this, DemoApplication.MAPBOX_ACCESS_TOKEN);
         setContentView(R.layout.activity_map);
-//        NavisensCore core = new NavisensCore(DemoApplication.NAVISENS_API_KEY, MapActivity.this);
-//        NaviShare share = core.init(NaviShare.class);
-//        share.testConnect();//kalau ditambah 3 line ini, nggak mau nge-compile
-        //coba cari cara lain untuk sharing indoor location supaya bisa dipake untuk smart trolley
         currentLat = findViewById(R.id.currentLat);
         currentLon = findViewById(R.id.currentLon);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -66,11 +58,13 @@ public class MapActivity extends AppCompatActivity {
         mapView.setStyleUrl(DemoApplication.MAPWIZE_STYLE_URL_BASE + AccountManager.getInstance().getApiKey());
         MapOptions opts = new MapOptions.Builder().build();
         mapwizePlugin = new MapwizePlugin(mapView, opts);
+        //pelajari pemakaian retrofit untuk handle python request
+        //kalau bisa, berarti bisa dapet direction dari satu point ke point lain
+        //kemungkinan cuma bisa pake current lat lon untuk point to point directions
+        //cari cara untuk get distance dari current location ke location lain
         mapwizePlugin.setOnDidLoadListener(plugin -> {
-            requestLocationPermission();//kayaknya nggak bisa ditambahin auto-mapview change buat code ini
-        });//kalau ditambahin auto-mapview change, nanti indoor navigationnya nggak jalan
-        //ada kemungkinan app mapwize yang di playstore berpengaruh ke app ini
-        //kalau langsung run app ini, ada chance mapview dan user marker yang ada malah berjalan berlawanan dengan arah kita berjalan
+            requestLocationPermission();
+        });
         mapwizePlugin.setOnMapClickListener(latLngFloor -> {
             IndoorLocation indoorLocation = new IndoorLocation(manualIndoorLocationProvider.getName(), latLngFloor.getLatitude(), latLngFloor.getLongitude(), latLngFloor.getFloor(), System.currentTimeMillis());
             manualIndoorLocationProvider.dispatchIndoorLocationChange(indoorLocation);
@@ -105,6 +99,7 @@ public class MapActivity extends AppCompatActivity {
                             currentLon.setText(currLon);
                             lat = location.getLatitude();
                             lon = location.getLongitude();
+
                         }
                     }
                 });
