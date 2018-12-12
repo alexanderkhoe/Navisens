@@ -15,20 +15,23 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.maps.MapView;
+import com.navisens.motiondnaapi.MotionDna;
+import com.navisens.motiondnaapi.MotionDnaApplication;
 
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import io.indoorlocation.core.IndoorLocation;
 import io.indoorlocation.core.IndoorLocationProvider;
 import io.indoorlocation.manual.ManualIndoorLocationProvider;
 import io.indoorlocation.navisens.NavisensIndoorLocationProvider;
 import io.mapwize.mapwizeformapbox.AccountManager;
 import io.mapwize.mapwizeformapbox.MapOptions;
 import io.mapwize.mapwizeformapbox.MapwizePlugin;
-import io.mapwize.mapwizeformapbox.model.Direction;
 
-public class MapActivity extends AppCompatActivity {
+public class MapActivity extends AppCompatActivity{
 
     private MapView mapView;
     private MapwizePlugin mapwizePlugin;
@@ -41,10 +44,17 @@ public class MapActivity extends AppCompatActivity {
     public TextView currentLat;
     public TextView currentLon;
 
+    private String getLat;
+    private String getLon;
+
     private double lat, lon;
 
-    private Direction direction;
     private FusedLocationProviderClient mFusedLocationClient;
+
+    String LatLon;
+    private TextView sharedLat;
+    private TextView sharedLon;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,22 +62,16 @@ public class MapActivity extends AppCompatActivity {
         setContentView(R.layout.activity_map);
         currentLat = findViewById(R.id.currentLat);
         currentLon = findViewById(R.id.currentLon);
+        sharedLat = findViewById(R.id.currSharedLat);
+        sharedLon = findViewById(R.id.currSharedLon);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         mapView = findViewById(R.id.mapview);
         mapView.onCreate(savedInstanceState);
         mapView.setStyleUrl(DemoApplication.MAPWIZE_STYLE_URL_BASE + AccountManager.getInstance().getApiKey());
         MapOptions opts = new MapOptions.Builder().build();
         mapwizePlugin = new MapwizePlugin(mapView, opts);
-        //pelajari pemakaian retrofit untuk handle python request
-        //kalau bisa, berarti bisa dapet direction dari satu point ke point lain
-        //kemungkinan cuma bisa pake current lat lon untuk point to point directions
-        //cari cara untuk get distance dari current location ke location lain
         mapwizePlugin.setOnDidLoadListener(plugin -> {
             requestLocationPermission();
-        });
-        mapwizePlugin.setOnMapClickListener(latLngFloor -> {
-            IndoorLocation indoorLocation = new IndoorLocation(manualIndoorLocationProvider.getName(), latLngFloor.getLatitude(), latLngFloor.getLongitude(), latLngFloor.getFloor(), System.currentTimeMillis());
-            manualIndoorLocationProvider.dispatchIndoorLocationChange(indoorLocation);
 
         });
 
@@ -78,10 +82,18 @@ public class MapActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         getCurrLocation();
+                        getSharedLocation();
+                        try {
+                            Thread.sleep(800);
+                            LatLon = " ";
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
                     }
                 });
             }
-        }, 0, 1500);
+        }, 0, 1000);
+
     }
 
     protected void getCurrLocation(){
@@ -99,11 +111,28 @@ public class MapActivity extends AppCompatActivity {
                             currentLon.setText(currLon);
                             lat = location.getLatitude();
                             lon = location.getLongitude();
-
                         }
                     }
                 });
     }
+
+    protected void getSharedLocation(){
+//        navisensIndoorLocationProvider.receiveNetworkData(motionDna);//null object reference. coba debug
+//        navisensIndoorLocationProvider.receiveNetworkData(MotionDna.NetworkCode.RAW_NETWORK_DATA, map);
+        try{
+            LatLon = navisensIndoorLocationProvider.getSharedLoc();
+            String[] parts = LatLon.split(":")[1].split(",");
+            getLat = parts[0];
+            getLon = parts[1];
+            sharedLat.setText(getLat);
+            sharedLon.setText(getLon);
+        }
+        catch(NullPointerException ex){
+            ex.printStackTrace();
+        }
+
+    }
+
     private void setupLocationProvider() {
         manualIndoorLocationProvider = new ManualIndoorLocationProvider();
         navisensIndoorLocationProvider = new NavisensIndoorLocationProvider(getApplicationContext(),
@@ -165,6 +194,7 @@ public class MapActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         mapView.onDestroy();
+
     }
 
     @Override

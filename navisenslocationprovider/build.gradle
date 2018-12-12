@@ -25,5 +25,4 @@ dependencies {
     implementation group: "com.navisens", name: "motiondnaapi", version: "1.7.3", changing: true
 
 
-
 }

@@ -1,23 +1,23 @@
 package io.indoorlocation.navisens;
 
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.location.LocationManager;
+import android.widget.TextView;
 
 import com.navisens.motiondnaapi.MotionDna;
 import com.navisens.motiondnaapi.MotionDnaApplication;
 import com.navisens.motiondnaapi.MotionDnaInterface;
 
+import java.util.ArrayList;
+import java.util.Hashtable;
+import java.util.List;
 import java.util.Map;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import io.indoorlocation.core.IndoorLocation;
 import io.indoorlocation.core.IndoorLocationProvider;
 import io.indoorlocation.core.IndoorLocationProviderListener;
 
-import static android.content.Context.LOCATION_SERVICE;
+import static android.os.SystemClock.elapsedRealtime;
 
 public class NavisensIndoorLocationProvider extends IndoorLocationProvider implements MotionDnaInterface, IndoorLocationProviderListener {
     private Context mContext;
@@ -28,14 +28,22 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
     private boolean mStarted = false;
     private Double mCurrentFloor = null;
 
-    private int mUpdateRate = 1000;
+    private int mUpdateRate = 500;
     private MotionDna.PowerConsumptionMode mPowerMode = MotionDna.PowerConsumptionMode.PERFORMANCE;
     Context context;
     public double latitude;
     public double longitude;
-    public MotionDna.Location location;
 
+    private String room = "m2a";
+    private String host = "10.21.58.219";
+    private String port = "8080";
+    private String lat, lon;
+    private static String getLatLon;
 
+    Hashtable<String, MotionDna> networkUsers = new Hashtable<String, MotionDna>();
+    Hashtable<String, Double> networkUsersTimestamps = new Hashtable<String, Double>();
+    public TextView networkTextView;
+    public String sharedLoc;
     /**
      * Create a new instance of Navisens location provider
      * @param context
@@ -64,7 +72,6 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
         mSourceProvider = sourceProvider;
         mSourceProvider.addListener(this);
         mMotionDna = new MotionDnaApplication(this);
-
     }
     public NavisensIndoorLocationProvider(Context context){
         this.context = context;
@@ -93,7 +100,9 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
         if (mCurrentFloor != null) {
             mMotionDna.setFloorNumber(mCurrentFloor.intValue());
         }
-
+        lat = Double.toString(latitude);
+        lon = Double.toString(longitude);
+        mMotionDna.sendUDPPacket("Latitude : "+lat +"\nLongitude : "+lon);
     }
 
     @Override
@@ -103,20 +112,23 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
 
     @Override
     public void start() {
-
         if (!mStarted) {
             mStarted = true;
             mMotionDna.runMotionDna(mNavisensKey);
             mMotionDna.setCallbackUpdateRateInMs(mUpdateRate);
             mMotionDna.setPowerMode(mPowerMode);
-            try {
-                mMotionDna.setLocationGPSOnly();//kelihatannya perlu berjalan sekitar 10 meter atau lebih untuk calibrate
-                Thread.sleep(15000);//kalau udah jalan, untuk beberapa jam kedepan, GPS positioningnya bakal ambil
-                mMotionDna.setLocationNavisens();//data dari calibration sebelumnya
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
+//            try {
+//                mMotionDna.setLocationGPSOnly();//kelihatannya perlu berjalan sekitar 10 meter atau lebih untuk calibrate
+//                Thread.sleep(8000);//kalau udah jalan, untuk beberapa jam kedepan, GPS positioningnya bakal ambil
+//                mMotionDna.setLocationNavisens();//data dari calibration sebelumnya
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+            mMotionDna.setLocationGPSOnly();
+            mMotionDna.setLocationNavisens();
+            mMotionDna.startUDP(room, host, port);
+            mMotionDna.setBackpropagationEnabled(true);
+            mMotionDna.setNetworkUpdateRateInMs(500);
         }
     }
 
@@ -136,15 +148,47 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
 
     @Override
     public void receiveMotionDna(MotionDna motionDna) {
-        MotionDna.Location location = motionDna.getLocation();
-        mCurrentFloor = (double)location.floor;
-        IndoorLocation indoorLocation = new IndoorLocation(getName(), location.globalLocation.latitude, location.globalLocation.longitude, mCurrentFloor, System.currentTimeMillis());
-        dispatchIndoorLocationChange(indoorLocation);
-        if(indoorLocation.getLatitude()!= 0 && indoorLocation.getLongitude()!=0){
-            dispatchIndoorLocationChange(indoorLocation);
+//        MotionDna.Location location = motionDna.getLocation();
+//        mCurrentFloor = (double)location.floor;
+//        IndoorLocation indoorLocation = new IndoorLocation(getName(), location.globalLocation.latitude, location.globalLocation.longitude, mCurrentFloor, System.currentTimeMillis());
+//        dispatchIndoorLocationChange(indoorLocation);
+//        if(indoorLocation.getLatitude()!= 0 && indoorLocation.getLongitude()!=0){
+//            dispatchIndoorLocationChange(indoorLocation);
+//        }
+
+        networkUsers.put(motionDna.getID(),motionDna);
+        double timeSinceBootSeconds = elapsedRealtime() / 1000.0;
+        networkUsersTimestamps.put(motionDna.getID(),timeSinceBootSeconds);
+        StringBuilder activeNetworkUsersStringBuilder = new StringBuilder();
+        List<String> toRemove = new ArrayList();
+
+        activeNetworkUsersStringBuilder.append("Network Shared Devices:\n");
+        for (MotionDna user: networkUsers.values()) {
+            if (timeSinceBootSeconds - networkUsersTimestamps.get(user.getID()) > 2.0) {
+                toRemove.add(user.getID());
+            } else {
+                activeNetworkUsersStringBuilder.append(user.getDeviceName());
+                MotionDna.XYZ location = user.getLocation().localLocation;
+                activeNetworkUsersStringBuilder.append(String.format(" (%.2f, %.2f, %.2f)",location.x, location.y, location.z));
+                activeNetworkUsersStringBuilder.append("\n");
+            }
+
         }
+        for (String key: toRemove) {
+            networkUsers.remove(key);
+            networkUsersTimestamps.remove(key);
+        }
+//        networkTextView.setText(activeNetworkUsersStringBuilder.toString());
+        setSharedLoc(activeNetworkUsersStringBuilder.toString());
     }
 
+    public void setSharedLoc(String string){
+        sharedLoc = this.toString();
+    }
+
+    public String getSharedLoc(){
+        return sharedLoc;
+    }
     @Override
     public void receiveNetworkData(MotionDna motionDna) {
 
@@ -152,7 +196,13 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
 
     @Override
     public void receiveNetworkData(MotionDna.NetworkCode networkCode, Map<String, ?> map) {
-
+        switch(networkCode){
+            case RAW_NETWORK_DATA:{
+                if(map.containsKey("payload")) {
+                    getLatLon = map.get("payload").toString();
+                }
+            }
+        }
     }
 
     @Override

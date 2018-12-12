@@ -1,6 +1,7 @@
 package io.indoorlocation.navisens.demoapp;
 
 import android.app.Application;
+
 import io.mapwize.mapwizeformapbox.AccountManager;
 
 public class DemoApplication extends Application {

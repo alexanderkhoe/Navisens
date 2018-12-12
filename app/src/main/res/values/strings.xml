@@ -2,4 +2,6 @@
     <string name="app_name">Navisens provider demo</string>
     <string name="latitude">Latitude :</string>
     <string name="longitude">Longitude :</string>
+    <string name="trolley_longitude">Trolley Longitude :</string>
+    <string name="trolley_latitude">Trolley Latitude :</string>
 </resources>
