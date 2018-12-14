@@ -8,7 +8,9 @@ import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -30,6 +32,11 @@ import io.indoorlocation.navisens.NavisensIndoorLocationProvider;
 import io.mapwize.mapwizeformapbox.AccountManager;
 import io.mapwize.mapwizeformapbox.MapOptions;
 import io.mapwize.mapwizeformapbox.MapwizePlugin;
+import timber.log.Timber;
+
+import static com.navisens.motiondnaapi.MotionDna.ErrorCode.ERROR_PERMISSIONS;
+import static com.navisens.motiondnaapi.MotionDna.ErrorCode.ERROR_SENSOR_MISSING;
+import static com.navisens.motiondnaapi.MotionDna.ErrorCode.ERROR_SENSOR_TIMING;
 
 public class MapActivity extends AppCompatActivity{
 
@@ -51,10 +58,10 @@ public class MapActivity extends AppCompatActivity{
 
     private FusedLocationProviderClient mFusedLocationClient;
 
-    String LatLon;
     private TextView sharedLat;
     private TextView sharedLon;
 
+    MotionDna.LocationStatus locationStat1 = MotionDna.LocationStatus.NAVISENS_INITIALIZED;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -83,12 +90,6 @@ public class MapActivity extends AppCompatActivity{
                     public void run() {
                         getCurrLocation();
                         getSharedLocation();
-                        try {
-                            Thread.sleep(800);
-                            LatLon = " ";
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
                     }
                 });
             }
@@ -117,20 +118,20 @@ public class MapActivity extends AppCompatActivity{
     }
 
     protected void getSharedLocation(){
-//        navisensIndoorLocationProvider.receiveNetworkData(motionDna);//null object reference. coba debug
-//        navisensIndoorLocationProvider.receiveNetworkData(MotionDna.NetworkCode.RAW_NETWORK_DATA, map);
-        try{
-            LatLon = navisensIndoorLocationProvider.getSharedLoc();
-            String[] parts = LatLon.split(":")[1].split(",");
-            getLat = parts[0];
-            getLon = parts[1];
-            sharedLat.setText(getLat);
-            sharedLon.setText(getLon);
+        if(MotionDna.LocationStatus.NAVISENS_INITIALIZED==locationStat1) {
+            try {
+                String LatLon = navisensIndoorLocationProvider.sharedLoc;
+                String[] parts = LatLon.split(" ");
+                getLat = parts[0];
+                getLon = parts[1];
+                sharedLat.setText(getLat);
+                sharedLon.setText(getLon);
+                String localXY = navisensIndoorLocationProvider.localLocation;
+                Log.w("Local X and Y", localXY);
+            } catch (NullPointerException ex) {
+                ex.printStackTrace();
+            }
         }
-        catch(NullPointerException ex){
-            ex.printStackTrace();
-        }
-
     }
 
     private void setupLocationProvider() {

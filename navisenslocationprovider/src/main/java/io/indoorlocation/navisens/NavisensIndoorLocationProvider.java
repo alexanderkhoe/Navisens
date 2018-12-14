@@ -3,6 +3,7 @@ package io.indoorlocation.navisens;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.navisens.motiondnaapi.MotionDna;
 import com.navisens.motiondnaapi.MotionDnaApplication;
@@ -42,8 +43,9 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
 
     Hashtable<String, MotionDna> networkUsers = new Hashtable<String, MotionDna>();
     Hashtable<String, Double> networkUsersTimestamps = new Hashtable<String, Double>();
-    public TextView networkTextView;
+
     public String sharedLoc;
+    public String localLocation;
     /**
      * Create a new instance of Navisens location provider
      * @param context
@@ -148,50 +150,34 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
 
     @Override
     public void receiveMotionDna(MotionDna motionDna) {
-//        MotionDna.Location location = motionDna.getLocation();
-//        mCurrentFloor = (double)location.floor;
-//        IndoorLocation indoorLocation = new IndoorLocation(getName(), location.globalLocation.latitude, location.globalLocation.longitude, mCurrentFloor, System.currentTimeMillis());
-//        dispatchIndoorLocationChange(indoorLocation);
-//        if(indoorLocation.getLatitude()!= 0 && indoorLocation.getLongitude()!=0){
-//            dispatchIndoorLocationChange(indoorLocation);
-//        }
+        MotionDna.Location location = motionDna.getLocation();
+        mCurrentFloor = (double)location.floor;
+        IndoorLocation indoorLocation = new IndoorLocation(getName(), location.globalLocation.latitude, location.globalLocation.longitude, mCurrentFloor, System.currentTimeMillis());
+        dispatchIndoorLocationChange(indoorLocation);
+        if(indoorLocation.getLatitude()!= 0 && indoorLocation.getLongitude()!=0){
+            dispatchIndoorLocationChange(indoorLocation);
+        }
+    }
 
+    @Override
+    public void receiveNetworkData(MotionDna motionDna) {
         networkUsers.put(motionDna.getID(),motionDna);
         double timeSinceBootSeconds = elapsedRealtime() / 1000.0;
         networkUsersTimestamps.put(motionDna.getID(),timeSinceBootSeconds);
-        StringBuilder activeNetworkUsersStringBuilder = new StringBuilder();
         List<String> toRemove = new ArrayList();
 
-        activeNetworkUsersStringBuilder.append("Network Shared Devices:\n");
         for (MotionDna user: networkUsers.values()) {
             if (timeSinceBootSeconds - networkUsersTimestamps.get(user.getID()) > 2.0) {
                 toRemove.add(user.getID());
             } else {
-                activeNetworkUsersStringBuilder.append(user.getDeviceName());
-                MotionDna.XYZ location = user.getLocation().localLocation;
-                activeNetworkUsersStringBuilder.append(String.format(" (%.2f, %.2f, %.2f)",location.x, location.y, location.z));
-                activeNetworkUsersStringBuilder.append("\n");
+                MotionDna.GlobalLocation loc = user.getLocation().globalLocation;
+                sharedLoc=Double.toString(loc.latitude)+" "+Double.toString(loc.longitude);
             }
-
         }
         for (String key: toRemove) {
             networkUsers.remove(key);
             networkUsersTimestamps.remove(key);
         }
-//        networkTextView.setText(activeNetworkUsersStringBuilder.toString());
-        setSharedLoc(activeNetworkUsersStringBuilder.toString());
-    }
-
-    public void setSharedLoc(String string){
-        sharedLoc = this.toString();
-    }
-
-    public String getSharedLoc(){
-        return sharedLoc;
-    }
-    @Override
-    public void receiveNetworkData(MotionDna motionDna) {
-
     }
 
     @Override
