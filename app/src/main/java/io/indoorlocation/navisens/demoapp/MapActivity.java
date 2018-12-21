@@ -8,9 +8,7 @@ import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -18,25 +16,21 @@ import com.google.android.gms.tasks.OnSuccessListener;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.navisens.motiondnaapi.MotionDna;
-import com.navisens.motiondnaapi.MotionDnaApplication;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
+import java.io.IOException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import io.indoorlocation.basicbeaconlocationprovider.BasicBeaconIndoorLocationProvider;
 import io.indoorlocation.core.IndoorLocationProvider;
+import io.indoorlocation.gps.GPSIndoorLocationProvider;
 import io.indoorlocation.manual.ManualIndoorLocationProvider;
 import io.indoorlocation.navisens.NavisensIndoorLocationProvider;
 import io.mapwize.mapwizeformapbox.AccountManager;
 import io.mapwize.mapwizeformapbox.MapOptions;
 import io.mapwize.mapwizeformapbox.MapwizePlugin;
-import timber.log.Timber;
-
-import static com.navisens.motiondnaapi.MotionDna.ErrorCode.ERROR_PERMISSIONS;
-import static com.navisens.motiondnaapi.MotionDna.ErrorCode.ERROR_SENSOR_MISSING;
-import static com.navisens.motiondnaapi.MotionDna.ErrorCode.ERROR_SENSOR_TIMING;
 
 public class MapActivity extends AppCompatActivity{
 
@@ -61,6 +55,10 @@ public class MapActivity extends AppCompatActivity{
     private TextView sharedLat;
     private TextView sharedLon;
 
+    private GPSIndoorLocationProvider gpsIndoorLocationProvider;
+    private BasicBeaconIndoorLocationProvider basicBeaconIndoorLocationProvider;//kayaknya harus import project yang di github
+    //baru bisa pake basic beacon provider
+
     MotionDna.LocationStatus locationStat1 = MotionDna.LocationStatus.NAVISENS_INITIALIZED;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,10 +70,12 @@ public class MapActivity extends AppCompatActivity{
         sharedLat = findViewById(R.id.currSharedLat);
         sharedLon = findViewById(R.id.currSharedLon);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        gpsIndoorLocationProvider = new GPSIndoorLocationProvider(this);
+        basicBeaconIndoorLocationProvider = new BasicBeaconIndoorLocationProvider(this, DemoApplication.MAPWIZE_API_KEY, gpsIndoorLocationProvider);
         mapView = findViewById(R.id.mapview);
         mapView.onCreate(savedInstanceState);
         mapView.setStyleUrl(DemoApplication.MAPWIZE_STYLE_URL_BASE + AccountManager.getInstance().getApiKey());
-        MapOptions opts = new MapOptions.Builder().build();
+        MapOptions opts = new MapOptions.Builder().venueId("5bc4474c731e630012b7607c").build();
         mapwizePlugin = new MapwizePlugin(mapView, opts);
         mapwizePlugin.setOnDidLoadListener(plugin -> {
             requestLocationPermission();
@@ -112,6 +112,7 @@ public class MapActivity extends AppCompatActivity{
                             currentLon.setText(currLon);
                             lat = location.getLatitude();
                             lon = location.getLongitude();
+//                            navisensIndoorLocationProvider.getLastLocation();
                         }
                     }
                 });
@@ -126,12 +127,15 @@ public class MapActivity extends AppCompatActivity{
                 getLon = parts[1];
                 sharedLat.setText(getLat);
                 sharedLon.setText(getLon);
-                String localXY = navisensIndoorLocationProvider.localLocation;
-                Log.w("Local X and Y", localXY);
             } catch (NullPointerException ex) {
                 ex.printStackTrace();
             }
         }
+    }
+
+    private void initPosBLE(){
+//        String beaconLat = basicBeaconIndoorLocationProvider.fetchBeaconData();// coba cari cara buat fetch beacon data
+        //jadi bisa liat beaconnya ada di mana aja. klo gk berguna, cari cara buat implementasi navibeacon ke project ini
     }
 
     private void setupLocationProvider() {
@@ -139,6 +143,7 @@ public class MapActivity extends AppCompatActivity{
         navisensIndoorLocationProvider = new NavisensIndoorLocationProvider(getApplicationContext(),
                 DemoApplication.NAVISENS_API_KEY, manualIndoorLocationProvider);
         mapwizePlugin.setLocationProvider(navisensIndoorLocationProvider);
+        mapwizePlugin.setLocationProvider(basicBeaconIndoorLocationProvider);
     }
 
     @Override

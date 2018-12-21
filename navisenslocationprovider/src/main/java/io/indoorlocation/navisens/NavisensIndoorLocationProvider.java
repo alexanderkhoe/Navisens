@@ -36,7 +36,7 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
     public double longitude;
 
     private String room = "m2a";
-    private String host = "10.21.58.219";
+    private String host = "10.21.58.213";
     private String port = "8080";
     private String lat, lon;
     private static String getLatLon;
@@ -119,13 +119,6 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
             mMotionDna.runMotionDna(mNavisensKey);
             mMotionDna.setCallbackUpdateRateInMs(mUpdateRate);
             mMotionDna.setPowerMode(mPowerMode);
-//            try {
-//                mMotionDna.setLocationGPSOnly();//kelihatannya perlu berjalan sekitar 10 meter atau lebih untuk calibrate
-//                Thread.sleep(8000);//kalau udah jalan, untuk beberapa jam kedepan, GPS positioningnya bakal ambil
-//                mMotionDna.setLocationNavisens();//data dari calibration sebelumnya
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
             mMotionDna.setLocationGPSOnly();
             mMotionDna.setLocationNavisens();
             mMotionDna.startUDP(room, host, port);
@@ -182,13 +175,7 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
 
     @Override
     public void receiveNetworkData(MotionDna.NetworkCode networkCode, Map<String, ?> map) {
-        switch(networkCode){
-            case RAW_NETWORK_DATA:{
-                if(map.containsKey("payload")) {
-                    getLatLon = map.get("payload").toString();
-                }
-            }
-        }
+
     }
 
     @Override
