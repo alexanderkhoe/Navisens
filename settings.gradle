@@ -1,1 +1,1 @@
-include ':app', ':navisenslocationprovider', ':basicbeaconlocationprovider'
+include ':app', ':navisenslocationprovider'

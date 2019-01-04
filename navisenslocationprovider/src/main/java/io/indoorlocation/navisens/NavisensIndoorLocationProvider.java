@@ -2,8 +2,6 @@ package io.indoorlocation.navisens;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.widget.TextView;
-import android.widget.Toast;
 
 import com.navisens.motiondnaapi.MotionDna;
 import com.navisens.motiondnaapi.MotionDnaApplication;
@@ -45,7 +43,6 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
     Hashtable<String, Double> networkUsersTimestamps = new Hashtable<String, Double>();
 
     public String sharedLoc;
-    public String localLocation;
     /**
      * Create a new instance of Navisens location provider
      * @param context

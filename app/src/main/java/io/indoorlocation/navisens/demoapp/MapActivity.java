@@ -1,31 +1,37 @@
 package io.indoorlocation.navisens.demoapp;
 
 import android.Manifest;
+import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.zxing.integration.android.IntentIntegrator;
+import com.google.zxing.integration.android.IntentResult;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.navisens.motiondnaapi.MotionDna;
 
-import java.io.IOException;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import io.indoorlocation.basicbeaconlocationprovider.BasicBeaconIndoorLocationProvider;
 import io.indoorlocation.core.IndoorLocationProvider;
-import io.indoorlocation.gps.GPSIndoorLocationProvider;
 import io.indoorlocation.manual.ManualIndoorLocationProvider;
 import io.indoorlocation.navisens.NavisensIndoorLocationProvider;
 import io.mapwize.mapwizeformapbox.AccountManager;
@@ -39,6 +45,7 @@ public class MapActivity extends AppCompatActivity{
     private IndoorLocationProvider manualIndoorLocationProvider;
     private NavisensIndoorLocationProvider navisensIndoorLocationProvider;
     private static final int REQUEST_LOCATION_PERMISSION = 1;
+    private static final int REQUEST_CAMERA_PERMISSION = 1;
     private String currLat;
     private String currLon;
 
@@ -55,11 +62,8 @@ public class MapActivity extends AppCompatActivity{
     private TextView sharedLat;
     private TextView sharedLon;
 
-    private GPSIndoorLocationProvider gpsIndoorLocationProvider;
-    private BasicBeaconIndoorLocationProvider basicBeaconIndoorLocationProvider;//kayaknya harus import project yang di github
-    //baru bisa pake basic beacon provider
-
     MotionDna.LocationStatus locationStat1 = MotionDna.LocationStatus.NAVISENS_INITIALIZED;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -69,9 +73,21 @@ public class MapActivity extends AppCompatActivity{
         currentLon = findViewById(R.id.currentLon);
         sharedLat = findViewById(R.id.currSharedLat);
         sharedLon = findViewById(R.id.currSharedLon);
+        Button camBtn = findViewById(R.id.btn_cam);
+        final Activity activity = this;
+        camBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                IntentIntegrator integrator = new IntentIntegrator(activity);
+                integrator.setDesiredBarcodeFormats(IntentIntegrator.QR_CODE_TYPES);
+                integrator.setPrompt("Scan");
+                integrator.setCameraId(0);
+                integrator.setBeepEnabled(false);
+                integrator.setBarcodeImageEnabled(false);
+                integrator.initiateScan();
+            }
+        });
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        gpsIndoorLocationProvider = new GPSIndoorLocationProvider(this);
-        basicBeaconIndoorLocationProvider = new BasicBeaconIndoorLocationProvider(this, DemoApplication.MAPWIZE_API_KEY, gpsIndoorLocationProvider);
         mapView = findViewById(R.id.mapview);
         mapView.onCreate(savedInstanceState);
         mapView.setStyleUrl(DemoApplication.MAPWIZE_STYLE_URL_BASE + AccountManager.getInstance().getApiKey());
@@ -79,22 +95,34 @@ public class MapActivity extends AppCompatActivity{
         mapwizePlugin = new MapwizePlugin(mapView, opts);
         mapwizePlugin.setOnDidLoadListener(plugin -> {
             requestLocationPermission();
-
         });
-
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        getCurrLocation();
-                        getSharedLocation();
-                    }
+                runOnUiThread(() -> {
+                    getCurrLocation();
+                    getSharedLocation();
                 });
             }
         }, 0, 1000);
+    }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+        if(result!=null){
+            if(result.getContents()==null){
+                Toast.makeText(this,"Scanning cancelled", Toast.LENGTH_LONG).show();
+            }
+            else {
+                Toast.makeText(this, result.getContents(), Toast.LENGTH_LONG).show();
+                String[] barcodeScanned = result.getContents().split(",");
+
+            }
+        }
+        else {
+            super.onActivityResult(requestCode, resultCode, data);
+        }
     }
 
     protected void getCurrLocation(){
@@ -112,7 +140,6 @@ public class MapActivity extends AppCompatActivity{
                             currentLon.setText(currLon);
                             lat = location.getLatitude();
                             lon = location.getLongitude();
-//                            navisensIndoorLocationProvider.getLastLocation();
                         }
                     }
                 });
@@ -133,17 +160,13 @@ public class MapActivity extends AppCompatActivity{
         }
     }
 
-    private void initPosBLE(){
-//        String beaconLat = basicBeaconIndoorLocationProvider.fetchBeaconData();// coba cari cara buat fetch beacon data
-        //jadi bisa liat beaconnya ada di mana aja. klo gk berguna, cari cara buat implementasi navibeacon ke project ini
-    }
-
     private void setupLocationProvider() {
         manualIndoorLocationProvider = new ManualIndoorLocationProvider();
         navisensIndoorLocationProvider = new NavisensIndoorLocationProvider(getApplicationContext(),
                 DemoApplication.NAVISENS_API_KEY, manualIndoorLocationProvider);
         mapwizePlugin.setLocationProvider(navisensIndoorLocationProvider);
-        mapwizePlugin.setLocationProvider(basicBeaconIndoorLocationProvider);
+
+
     }
 
     @Override
@@ -158,8 +181,9 @@ public class MapActivity extends AppCompatActivity{
     }
 
     private void requestLocationPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if ((ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)&& ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION_PERMISSION);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
         } else {
             setupLocationProvider();
         }
@@ -200,7 +224,6 @@ public class MapActivity extends AppCompatActivity{
     protected void onDestroy() {
         super.onDestroy();
         mapView.onDestroy();
-
     }
 
     @Override
