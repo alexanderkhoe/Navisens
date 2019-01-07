@@ -1,19 +1,17 @@
 package io.indoorlocation.navisens.demoapp;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -25,18 +23,28 @@ import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
 import com.mapbox.mapboxsdk.Mapbox;
+import com.mapbox.mapboxsdk.camera.CameraPosition;
+import com.mapbox.mapboxsdk.camera.CameraUpdate;
+import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
+import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.maps.MapView;
+import com.mapbox.mapboxsdk.maps.MapboxMap;
+import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.navisens.motiondnaapi.MotionDna;
 
 import java.util.Timer;
 import java.util.TimerTask;
 
+import io.indoorlocation.core.IndoorLocation;
 import io.indoorlocation.core.IndoorLocationProvider;
 import io.indoorlocation.manual.ManualIndoorLocationProvider;
 import io.indoorlocation.navisens.NavisensIndoorLocationProvider;
 import io.mapwize.mapwizeformapbox.AccountManager;
 import io.mapwize.mapwizeformapbox.MapOptions;
 import io.mapwize.mapwizeformapbox.MapwizePlugin;
+import io.mapwize.mapwizeformapbox.api.Api;
+import io.mapwize.mapwizeformapbox.api.ApiCallback;
+import io.mapwize.mapwizeformapbox.model.ParsedUrlObject;
 
 public class MapActivity extends AppCompatActivity{
 
@@ -64,6 +72,10 @@ public class MapActivity extends AppCompatActivity{
 
     MotionDna.LocationStatus locationStat1 = MotionDna.LocationStatus.NAVISENS_INITIALIZED;
 
+    private MapboxMap mapboxMap;
+    private boolean startedFromUrl = false;
+    private IndoorLocation lastLocation;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -74,19 +86,37 @@ public class MapActivity extends AppCompatActivity{
         sharedLat = findViewById(R.id.currSharedLat);
         sharedLon = findViewById(R.id.currSharedLon);
         Button camBtn = findViewById(R.id.btn_cam);
-        final Activity activity = this;
-        camBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                IntentIntegrator integrator = new IntentIntegrator(activity);
-                integrator.setDesiredBarcodeFormats(IntentIntegrator.QR_CODE_TYPES);
-                integrator.setPrompt("Scan");
-                integrator.setCameraId(0);
-                integrator.setBeepEnabled(false);
-                integrator.setBarcodeImageEnabled(false);
-                integrator.initiateScan();
-            }
-        });
+        Intent intent = MapActivity.this.getIntent();
+        String url = null;
+        if (intent.getStringExtra("mapwizeUrl") != null) {
+            url = intent.getStringExtra("mapwizeUrl");
+        }
+        else if (intent.getDataString() != null) {
+            url = intent.getDataString();
+        }
+        if (url != null) {
+            startedFromUrl = true;
+            Api.getParsedUrlObject(url, new ApiCallback<ParsedUrlObject>() {
+                @Override
+                public void onSuccess(final ParsedUrlObject object) {
+                    Handler uiHandler = new Handler(Looper.getMainLooper());
+                    Runnable runnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            handleParsedUrl(object);
+                        }
+                    };
+                    uiHandler.post(runnable);
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                    if (t != null) {
+                        t.printStackTrace();
+                    }
+                }
+            });
+        }
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         mapView = findViewById(R.id.mapview);
         mapView.onCreate(savedInstanceState);
@@ -96,6 +126,13 @@ public class MapActivity extends AppCompatActivity{
         mapwizePlugin.setOnDidLoadListener(plugin -> {
             requestLocationPermission();
         });
+        mapView.getMapAsync(new OnMapReadyCallback() {
+            @Override
+            public void onMapReady(MapboxMap mMap) {
+                mapboxMap = mMap;
+            }
+        });
+
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
@@ -105,6 +142,13 @@ public class MapActivity extends AppCompatActivity{
                 });
             }
         }, 0, 1000);
+        camBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MapActivity.this, ScannerActivity.class);
+                startActivityForResult(intent, 0);
+            }
+        });
     }
 
     @Override
@@ -122,6 +166,76 @@ public class MapActivity extends AppCompatActivity{
         }
         else {
             super.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    private void handleParsedUrl(final ParsedUrlObject parsedUrlObject) {
+        if (parsedUrlObject.getAccessKey() != null) {
+            Api.getAccess(parsedUrlObject.getAccessKey(), new ApiCallback<Boolean>() {
+                @Override
+                public void onSuccess(Boolean access) {
+                    parsedUrlObject.setAccessKey(null);
+                    mapwizePlugin.refresh(new MapwizePlugin.OnAsyncTaskReady() {
+                        @Override
+                        public void ready() {
+                            Handler uiHandler = new Handler(Looper.getMainLooper());
+                            Runnable runnable = new Runnable() {
+                                @Override
+                                public void run() {
+                                    handleParsedUrl(parsedUrlObject);
+                                }
+                            };
+                            uiHandler.post(runnable);
+                        }
+                    });
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                    if (t != null) {
+                        t.printStackTrace();
+                    }
+                }
+            });
+            return;
+        }
+
+        if (parsedUrlObject.getIndoorLocation() != null) {
+            if (navisensIndoorLocationProvider != null) {
+                navisensIndoorLocationProvider.setIndoorLocation(parsedUrlObject.getIndoorLocation());
+            }
+            else {
+                lastLocation = parsedUrlObject.getIndoorLocation();
+            }
+        }
+
+        if (parsedUrlObject.getLanguage() != null) {
+            mapwizePlugin.setPreferredLanguage(parsedUrlObject.getLanguage());
+        }
+
+        if (parsedUrlObject.getUniverse() != null) {
+            mapwizePlugin.setUniverseForVenue(parsedUrlObject.getUniverse(), null);
+        }
+
+        Double zoom = parsedUrlObject.getZoom();
+        LatLngBounds bounds = parsedUrlObject.getBounds();
+        if (bounds.getSouthWest().equals(bounds.getNorthEast())) {
+            CameraUpdate nextPosition = CameraUpdateFactory.newLatLngZoom(bounds.getSouthWest(), zoom==null?20:zoom);
+            mapboxMap.easeCamera(nextPosition);
+
+        }
+        else {
+            CameraUpdate nextPosition = CameraUpdateFactory.newLatLngBounds(bounds, 10);
+            CameraPosition nextCameraPosition = nextPosition.getCameraPosition(this.mapboxMap);
+            if (nextCameraPosition != null && nextCameraPosition.zoom < 16) {
+                nextPosition = CameraUpdateFactory.newLatLngZoom(nextCameraPosition.target, 16);
+            }
+            if (nextCameraPosition != null && zoom != null) {
+                nextPosition = CameraUpdateFactory.newLatLngZoom(nextCameraPosition.target, zoom);
+            }
+        }
+        if (parsedUrlObject.getFloor() != null) {
+            mapwizePlugin.setFloor(parsedUrlObject.getFloor());
         }
     }
 
@@ -165,7 +279,6 @@ public class MapActivity extends AppCompatActivity{
         navisensIndoorLocationProvider = new NavisensIndoorLocationProvider(getApplicationContext(),
                 DemoApplication.NAVISENS_API_KEY, manualIndoorLocationProvider);
         mapwizePlugin.setLocationProvider(navisensIndoorLocationProvider);
-
 
     }
 
