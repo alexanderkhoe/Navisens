@@ -54,6 +54,7 @@ public class ScannerActivity extends Activity implements ZXingScannerView.Result
         intent.putExtra("url", rawResult.getText());
         setResult(Activity.RESULT_OK, intent);
         finish();
+
     }
 
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {

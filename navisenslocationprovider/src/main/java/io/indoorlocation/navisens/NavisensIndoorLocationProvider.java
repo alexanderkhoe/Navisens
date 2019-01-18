@@ -18,6 +18,7 @@ import io.indoorlocation.core.IndoorLocationProviderListener;
 
 import static android.os.SystemClock.elapsedRealtime;
 
+
 public class NavisensIndoorLocationProvider extends IndoorLocationProvider implements MotionDnaInterface, IndoorLocationProviderListener {
     private Context mContext;
 
@@ -89,6 +90,7 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
      * @param indoorLocation
      */
     public void setIndoorLocation(IndoorLocation indoorLocation) {
+
         latitude = indoorLocation.getLatitude();
         longitude = indoorLocation.getLongitude();
         dispatchIndoorLocationChange(indoorLocation);
