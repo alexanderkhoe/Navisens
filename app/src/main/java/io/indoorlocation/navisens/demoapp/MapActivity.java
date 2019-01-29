@@ -8,13 +8,14 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -26,6 +27,7 @@ import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
+import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.navisens.motiondnaapi.MotionDna;
 
 import java.util.List;
@@ -36,14 +38,15 @@ import io.indoorlocation.core.IndoorLocation;
 import io.indoorlocation.core.IndoorLocationProvider;
 import io.indoorlocation.manual.ManualIndoorLocationProvider;
 import io.indoorlocation.navisens.NavisensIndoorLocationProvider;
-import io.mapwize.mapwizecomponents.ui.MapwizeFragment;
 import io.mapwize.mapwizeformapbox.AccountManager;
-import io.mapwize.mapwizeformapbox.map.FollowUserMode;
-import io.mapwize.mapwizeformapbox.map.MapOptions;
-import io.mapwize.mapwizeformapbox.map.MapwizePlugin;
+import io.mapwize.mapwizeformapbox.FollowUserMode;
+import io.mapwize.mapwizeformapbox.MapOptions;
+import io.mapwize.mapwizeformapbox.MapwizePlugin;
 import io.mapwize.mapwizeformapbox.api.Api;
 import io.mapwize.mapwizeformapbox.api.ApiCallback;
-import io.mapwize.mapwizeformapbox.api.ParsedUrlObject;
+import io.mapwize.mapwizeformapbox.api.ApiFilter;
+import io.mapwize.mapwizeformapbox.model.ParsedUrlObject;
+import io.mapwize.mapwizeformapbox.model.Venue;
 import me.dm7.barcodescanner.zxing.ZXingScannerView;
 
 public class MapActivity extends AppCompatActivity{
@@ -82,10 +85,9 @@ public class MapActivity extends AppCompatActivity{
     private ZXingScannerView mScannerView;
     private ApiCallback<Boolean> apiCallback;
 
-    private MapwizeFragment mapwizeFragment;
     //tambahin kode buat bikin activity baru dan viewnya juga. ini yang buat kendaliin troli
 
-//    private Venue nearestVenue;//masih blom bisa view venuenya
+    //    private Venue nearestVenue;//masih blom bisa view venuenya
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -102,12 +104,45 @@ public class MapActivity extends AppCompatActivity{
         mapView = findViewById(R.id.mapview);
         mapView.onCreate(savedInstanceState);
         mapView.setStyleUrl(DemoApplication.MAPWIZE_STYLE_URL_BASE + AccountManager.getInstance().getApiKey());
-        MapOptions opts = new MapOptions.Builder().centerOnVenue("5bc4474c731e630012b7607c").build();
-
-        mapwizeFragment = MapwizeFragment.newInstance(opts);
+        MapOptions opts = new MapOptions.Builder().venueId("5bc4474c731e630012b7607c").build();
+        mapwizePlugin = new MapwizePlugin(mapView, opts);
         mapwizePlugin.setOnDidLoadListener(plugin -> {
+
+            Intent intent = MapActivity.this.getIntent();
+            String url = null;
+            if (intent.getStringExtra("mapwizeUrl") != null) {
+                url = intent.getStringExtra("mapwizeUrl");
+            }
+            else if (intent.getDataString() != null) {
+                url = intent.getDataString();
+            }
+            if (url != null) {
+                startedFromUrl = true;
+                Api.getParsedUrlObject(url, new ApiCallback<ParsedUrlObject>() {
+                    @Override
+                    public void onSuccess(final ParsedUrlObject object) {
+                        Handler uiHandler = new Handler(Looper.getMainLooper());
+                        Runnable runnable = new Runnable() {
+                            @Override
+                            public void run() {
+                                handleParsedUrl(object);
+                            }
+                        };
+                        uiHandler.post(runnable);
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        if (t != null) {
+                            t.printStackTrace();
+                        }
+                    }
+                });
+            }
+
             mapwizePlugin.setFollowUserMode(FollowUserMode.FOLLOW_USER);
             requestLocationPermission();
+//            nearestVenue = mapwizePlugin.getVenue();//masih blom bisa view venuenya
         });
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
@@ -245,55 +280,42 @@ public class MapActivity extends AppCompatActivity{
     }
 
     private void handleParsedUrl(final ParsedUrlObject parsedUrlObject) {
-        if(parsedUrlObject.getAccessKey()==null){
-            mapwizePlugin.grantAccess("b9b89e3f7430db89", new ApiCallback<Boolean>() {
-                @Override
-                public void onSuccess(@Nullable Boolean aBoolean) {
-                    //belum dicoba apa ini bisa jalan atau nggak
-                }
-
-                @Override
-                public void onFailure(@Nullable Throwable throwable) {
-
-                }
-            });
-        }
         if (parsedUrlObject.getAccessKey() != null) {
             Api.getAccess(parsedUrlObject.getAccessKey(), new ApiCallback<Boolean>() {
                 @Override
                 public void onSuccess(Boolean access) {
-//                    mapwizePlugin.refresh(new MapwizePlugin.OnAsyncTaskReady() {
-//                        @Override
-//                        public void ready() {
-//                            Handler uiHandler = new Handler(Looper.getMainLooper());
-//                            Runnable runnable = new Runnable() {
-//                                @Override
-//                                public void run() {
-//                                    handleParsedUrl(parsedUrlObject);
-//                                }
-//                            };
-//                            uiHandler.post(runnable);
-//
-//                            ApiFilter apiFilter = new ApiFilter.Builder().build();
-//                            Api.getVenues(apiFilter, new ApiCallback<List<Venue>>() {
-//                                @Override
-//                                public void onSuccess(final List<Venue> object) {
-//                                    new Handler(Looper.getMainLooper()).post(new Runnable() {
-//                                        @Override
-//                                        public void run() {
-//                                            mapwizeLocationProvider.setVenues(object);
-//                                            mapwizeLocationProvider.checkVenueForIndoorLocationActivation();
-//                                        }
-//                                    });
-//                                }
-//
-//                                @Override
-//                                public void onFailure(Throwable t) {
-//
-//                                }
-//                            });
-//                        }
-//                    });
+                    mapwizePlugin.refresh(new MapwizePlugin.OnAsyncTaskReady() {
+                        @Override
+                        public void ready() {
+                            Handler uiHandler = new Handler(Looper.getMainLooper());
+                            Runnable runnable = new Runnable() {
+                                @Override
+                                public void run() {
+                                    handleParsedUrl(parsedUrlObject);
+                                }
+                            };
+                            uiHandler.post(runnable);
+
+                            ApiFilter apiFilter = new ApiFilter.Builder().build();
+                            Api.getVenues(apiFilter, new ApiCallback<List<Venue>>() {
+                                @Override
+                                public void onSuccess(final List<Venue> object) {
+                                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            mapwizeLocationProvider.setVenues(object);
+                                            mapwizeLocationProvider.checkVenueForIndoorLocationActivation();
+                                        }
+                                    });
+                                }
+
+                                @Override
+                                public void onFailure(Throwable t) {
+
+                                }
+                            });
+                        }
+                    });
                 }
 
                 @Override
