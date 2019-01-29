@@ -15,6 +15,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -46,6 +47,7 @@ import io.mapwize.mapwizeformapbox.api.ApiCallback;
 import io.mapwize.mapwizeformapbox.api.ApiFilter;
 import io.mapwize.mapwizeformapbox.model.ParsedUrlObject;
 import io.mapwize.mapwizeformapbox.model.Venue;
+import me.dm7.barcodescanner.zxing.ZXingScannerView;
 
 public class MapActivity extends AppCompatActivity{
 
@@ -53,6 +55,7 @@ public class MapActivity extends AppCompatActivity{
     private MapwizePlugin mapwizePlugin;
     private IndoorLocationProvider manualIndoorLocationProvider;
     private NavisensIndoorLocationProvider navisensIndoorLocationProvider;
+    private MapwizePlugin mapPlugin;
     private static final int REQUEST_LOCATION_PERMISSION = 1;
     private static final int REQUEST_CAMERA_PERMISSION = 1;
     private String currLat;
@@ -79,13 +82,19 @@ public class MapActivity extends AppCompatActivity{
 
     private LocationProvidersManager mapwizeLocationProvider;
 
+    private ZXingScannerView mScannerView;
+    private ApiCallback<Boolean> apiCallback;
+
     //tambahin kode buat bikin activity baru dan viewnya juga. ini yang buat kendaliin troli
 
+//    private Venue nearestVenue;//masih blom bisa view venuenya
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Mapbox.getInstance(this, DemoApplication.MAPBOX_ACCESS_TOKEN);
         setContentView(R.layout.activity_map);
+        mScannerView = findViewById(R.id.scanner);
+        mScannerView.setVisibility(View.GONE);
         currentLat = findViewById(R.id.currentLat);
         currentLon = findViewById(R.id.currentLon);
         sharedLat = findViewById(R.id.currSharedLat);
@@ -95,9 +104,10 @@ public class MapActivity extends AppCompatActivity{
         mapView = findViewById(R.id.mapview);
         mapView.onCreate(savedInstanceState);
         mapView.setStyleUrl(DemoApplication.MAPWIZE_STYLE_URL_BASE + AccountManager.getInstance().getApiKey());
-        MapOptions opts = new MapOptions.Builder().build();
+        MapOptions opts = new MapOptions.Builder().venueId("5bc4474c731e630012b7607c").build();
         mapwizePlugin = new MapwizePlugin(mapView, opts);
         mapwizePlugin.setOnDidLoadListener(plugin -> {
+
             Intent intent = MapActivity.this.getIntent();
             String url = null;
             if (intent.getStringExtra("mapwizeUrl") != null) {
@@ -132,6 +142,7 @@ public class MapActivity extends AppCompatActivity{
 
             mapwizePlugin.setFollowUserMode(FollowUserMode.FOLLOW_USER);
             requestLocationPermission();
+//            nearestVenue = mapwizePlugin.getVenue();//masih blom bisa view venuenya
         });
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
@@ -210,6 +221,18 @@ public class MapActivity extends AppCompatActivity{
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
         } else {
             setupLocationProvider();
+            apiCallback = new ApiCallback<Boolean>() {
+                @Override
+                public void onSuccess(Boolean aBoolean) {
+
+                }
+
+                @Override
+                public void onFailure(Throwable throwable) {
+
+                }
+            };
+            mapwizePlugin.grantAccess("b9b89e3f7430db89", apiCallback);
         }
     }
 

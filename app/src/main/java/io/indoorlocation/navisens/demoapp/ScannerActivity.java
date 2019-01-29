@@ -1,13 +1,11 @@
 package io.indoorlocation.navisens.demoapp;
 
-import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
+import android.widget.RelativeLayout;
 
 import com.google.zxing.Result;
 
@@ -15,35 +13,39 @@ import me.dm7.barcodescanner.zxing.ZXingScannerView;
 
 public class ScannerActivity extends Activity implements ZXingScannerView.ResultHandler{
 
-    private ZXingScannerView mScannerView;
+    private ZXingScannerView qrView;
 
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
+        setContentView(R.layout.scanner_activity);
+        init();
+    }
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                == PackageManager.PERMISSION_DENIED) {
-            ActivityCompat.requestPermissions(this, new String[] {Manifest.permission.CAMERA}, 0);
-        }
-        else {
-            mScannerView = new ZXingScannerView(this);
-            setContentView(mScannerView);
-        }
+    private void init() {
+        //Scanner
+        qrView = new ZXingScannerView(this);
+        RelativeLayout rl = (RelativeLayout) findViewById(R.id.relative_scan_take_single);
+        rl.addView(qrView);
+        qrView.setResultHandler(this);
+        qrView.startCamera();
+        qrView.setSoundEffectsEnabled(true);
+        qrView.setAutoFocus(true);
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        if (mScannerView != null) {
-            mScannerView.setResultHandler(this);
-            mScannerView.startCamera();
+        if (qrView != null) {
+            qrView.setResultHandler(this);
+            qrView.startCamera();
         }
     }
 
     @Override
     public void onPause() {
-        if (mScannerView != null){
-            mScannerView.stopCamera();
+        if (qrView != null){
+            qrView.stopCamera();
         }
         super.onPause();
     }
@@ -63,8 +65,9 @@ public class ScannerActivity extends Activity implements ZXingScannerView.Result
 
         if (requestCode == 0) {
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                mScannerView = new ZXingScannerView(this);
-                setContentView(mScannerView);
+                qrView = new ZXingScannerView(this);
+                setContentView(R.layout.scanner_activity);
+                qrView.startCamera();
 
             }
         }
