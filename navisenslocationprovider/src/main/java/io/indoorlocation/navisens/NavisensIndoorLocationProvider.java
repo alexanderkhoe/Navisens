@@ -2,6 +2,8 @@ package io.indoorlocation.navisens;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.util.Log;
+import android.widget.TextView;
 
 import com.navisens.motiondnaapi.MotionDna;
 import com.navisens.motiondnaapi.MotionDnaApplication;
@@ -31,14 +33,13 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
     private int mUpdateRate = 500;
     private MotionDna.PowerConsumptionMode mPowerMode = MotionDna.PowerConsumptionMode.PERFORMANCE;
     Context context;
-    public double latitude;
-    public double longitude;
+    public double latitude = 0.0;
+    public double longitude = 0.0;
 
-    private String room = "m2a";
-    private String host = "10.21.58.213";
-    private String port = "8080";
+    private String room = "m2a", room2 = "m2a2";
+    private String host = "0.0.0.0";
+    private String port = "6666";
     private String lat, lon;
-    private static String getLatLon;
 
     Hashtable<String, MotionDna> networkUsers = new Hashtable<String, MotionDna>();
     Hashtable<String, Double> networkUsersTimestamps = new Hashtable<String, Double>();
@@ -106,6 +107,12 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
         mMotionDna.sendUDPPacket("Latitude : "+lat +"\nLongitude : "+lon);
     }
 
+    public void setLocFromQR(Double setLat, Double setLon){
+        mMotionDna.setLocationLatitudeLongitude(setLat, setLon);
+        mMotionDna.setHeadingMagInDegrees();
+    }
+
+
     @Override
     public boolean supportsFloor() {
         return true;
@@ -121,11 +128,14 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
             mMotionDna.setLocationGPSOnly();
             mMotionDna.setLocationNavisens();
             mMotionDna.startUDP(room, host, port);
-            mMotionDna.setBackpropagationEnabled(true);
+//            mMotionDna.setBackpropagationEnabled(true);
             mMotionDna.setNetworkUpdateRateInMs(500);
         }
     }
 
+    public void start2ndUDP(){
+        mMotionDna.setUDPRoom(room2);
+    }
 
     @Override
     public void stop() {
@@ -149,6 +159,7 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
         if(indoorLocation.getLatitude()!= 0 && indoorLocation.getLongitude()!=0){
             dispatchIndoorLocationChange(indoorLocation);
         }
+
     }
 
     @Override
@@ -211,5 +222,8 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
     public void onIndoorLocationChange(IndoorLocation indoorLocation) {
         setIndoorLocation(indoorLocation);
         dispatchIndoorLocationChange(indoorLocation);
+
+        double latitude = indoorLocation.getLatitude();
+        double longitude = indoorLocation.getLongitude();
     }
 }

@@ -9,12 +9,15 @@ import android.widget.RelativeLayout;
 
 import com.google.zxing.Result;
 
+import io.indoorlocation.navisens.NavisensIndoorLocationProvider;
 import me.dm7.barcodescanner.zxing.ZXingScannerView;
 
 public class ScannerActivity extends Activity implements ZXingScannerView.ResultHandler{
 
     private ZXingScannerView qrView;
 
+    private MapActivity mapActivity;
+    private NavisensIndoorLocationProvider navisensIndoorLocationProvider;
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -31,6 +34,8 @@ public class ScannerActivity extends Activity implements ZXingScannerView.Result
         qrView.startCamera();
         qrView.setSoundEffectsEnabled(true);
         qrView.setAutoFocus(true);
+        mapActivity = new MapActivity();
+        navisensIndoorLocationProvider = new NavisensIndoorLocationProvider(this);
     }
 
     @Override

@@ -3,38 +3,24 @@ package io.indoorlocation.navisens.demoapp;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.location.Location;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.mapbox.mapboxsdk.Mapbox;
-import com.mapbox.mapboxsdk.camera.CameraPosition;
-import com.mapbox.mapboxsdk.camera.CameraUpdate;
-import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
-import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.maps.MapView;
-import com.mapbox.mapboxsdk.maps.MapboxMap;
-import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.navisens.motiondnaapi.MotionDna;
 
-import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import io.indoorlocation.core.IndoorLocation;
 import io.indoorlocation.core.IndoorLocationProvider;
 import io.indoorlocation.manual.ManualIndoorLocationProvider;
 import io.indoorlocation.navisens.NavisensIndoorLocationProvider;
@@ -42,10 +28,6 @@ import io.mapwize.mapwizeformapbox.AccountManager;
 import io.mapwize.mapwizeformapbox.FollowUserMode;
 import io.mapwize.mapwizeformapbox.MapOptions;
 import io.mapwize.mapwizeformapbox.MapwizePlugin;
-import io.mapwize.mapwizeformapbox.api.Api;
-import io.mapwize.mapwizeformapbox.api.ApiCallback;
-import io.mapwize.mapwizeformapbox.api.ApiFilter;
-import io.mapwize.mapwizeformapbox.model.ParsedUrlObject;
 import io.mapwize.mapwizeformapbox.model.Venue;
 import me.dm7.barcodescanner.zxing.ZXingScannerView;
 
@@ -55,7 +37,6 @@ public class MapActivity extends AppCompatActivity{
     private MapwizePlugin mapwizePlugin;
     private IndoorLocationProvider manualIndoorLocationProvider;
     private NavisensIndoorLocationProvider navisensIndoorLocationProvider;
-    private MapwizePlugin mapPlugin;
     private static final int REQUEST_LOCATION_PERMISSION = 1;
     private static final int REQUEST_CAMERA_PERMISSION = 1;
     private String currLat;
@@ -69,25 +50,16 @@ public class MapActivity extends AppCompatActivity{
 
     private double lat, lon;
 
-    private FusedLocationProviderClient mFusedLocationClient;
-
     private TextView sharedLat;
     private TextView sharedLon;
 
     MotionDna.LocationStatus locationStat1 = MotionDna.LocationStatus.NAVISENS_INITIALIZED;
 
-    private MapboxMap mapboxMap;
-    private boolean startedFromUrl = false;
-    private IndoorLocation lastLocation;
-
-    private LocationProvidersManager mapwizeLocationProvider;
-
     private ZXingScannerView mScannerView;
-    private ApiCallback<Boolean> apiCallback;
 
-    //tambahin kode buat bikin activity baru dan viewnya juga. ini yang buat kendaliin troli
-
-    //    private Venue nearestVenue;//masih blom bisa view venuenya
+    private FirebaseDatabase mFirebaseDatabase;
+    private DatabaseReference dbLat1, dbLon1, dbLat2, dbLon2, user1, user2;
+    protected boolean is2ndtrolley = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -100,49 +72,32 @@ public class MapActivity extends AppCompatActivity{
         sharedLat = findViewById(R.id.currSharedLat);
         sharedLon = findViewById(R.id.currSharedLon);
         Button camBtn = findViewById(R.id.btn_cam);
-        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        mFirebaseDatabase = FirebaseDatabase.getInstance();
+        dbLat1 = mFirebaseDatabase.getReference().child("troli1").child("currentLat");
+        dbLon1 = mFirebaseDatabase.getReference().child("troli1").child("currentLon");
+        dbLat2 = mFirebaseDatabase.getReference().child("troli2").child("currentLat");
+        dbLon2 = mFirebaseDatabase.getReference().child("troli2").child("currentLon");
+        user1 = mFirebaseDatabase.getReference().child("troli1").child("connectedTo");
+        user2 = mFirebaseDatabase.getReference().child("troli2").child("connectedTo");
         mapView = findViewById(R.id.mapview);
         mapView.onCreate(savedInstanceState);
         mapView.setStyleUrl(DemoApplication.MAPWIZE_STYLE_URL_BASE + AccountManager.getInstance().getApiKey());
-        MapOptions opts = new MapOptions.Builder().venueId("5bc4474c731e630012b7607c").build();
+        MapOptions opts = new MapOptions.Builder().build();
         mapwizePlugin = new MapwizePlugin(mapView, opts);
         mapwizePlugin.setOnDidLoadListener(plugin -> {
-
-            Intent intent = MapActivity.this.getIntent();
-            String url = null;
-            if (intent.getStringExtra("mapwizeUrl") != null) {
-                url = intent.getStringExtra("mapwizeUrl");
-            }
-            else if (intent.getDataString() != null) {
-                url = intent.getDataString();
-            }
-            if (url != null) {
-                startedFromUrl = true;
-                Api.getParsedUrlObject(url, new ApiCallback<ParsedUrlObject>() {
-                    @Override
-                    public void onSuccess(final ParsedUrlObject object) {
-                        Handler uiHandler = new Handler(Looper.getMainLooper());
-                        Runnable runnable = new Runnable() {
-                            @Override
-                            public void run() {
-                                handleParsedUrl(object);
-                            }
-                        };
-                        uiHandler.post(runnable);
-                    }
-
-                    @Override
-                    public void onFailure(Throwable t) {
-                        if (t != null) {
-                            t.printStackTrace();
-                        }
-                    }
-                });
-            }
-
             mapwizePlugin.setFollowUserMode(FollowUserMode.FOLLOW_USER);
             requestLocationPermission();
-//            nearestVenue = mapwizePlugin.getVenue();//masih blom bisa view venuenya
+            mapwizePlugin.setOnVenueEnterListener(new MapwizePlugin.OnVenueEnterListener() {
+                @Override
+                public void onVenueEnter(Venue venue) {
+                    mapwizePlugin.centerOnVenue(venue);
+                }
+
+                @Override
+                public void willEnterInVenue(Venue venue) {
+
+                }
+            });
         });
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
@@ -150,6 +105,7 @@ public class MapActivity extends AppCompatActivity{
                 runOnUiThread(() -> {
                     getCurrLocation();
                     getSharedLocation();
+
                 });
             }
         }, 0, 1000);
@@ -166,20 +122,22 @@ public class MapActivity extends AppCompatActivity{
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION_PERMISSION);
         }
-        mFusedLocationClient.getLastLocation()
-                .addOnSuccessListener(this, new OnSuccessListener<Location>() {
-                    @Override
-                    public void onSuccess(Location location) {
-                        if (location != null) {
-                            currLat = Double.toString(location.getLatitude());
-                            currLon = Double.toString(location.getLongitude());
-                            currentLat.setText(currLat);
-                            currentLon.setText(currLon);
-                            lat = location.getLatitude();
-                            lon = location.getLongitude();
-                        }
-                    }
-                });
+        if(navisensIndoorLocationProvider!=null&&navisensIndoorLocationProvider.getLastLocation()!=null){
+            double lat = navisensIndoorLocationProvider.getLastLocation().getLatitude();
+            double lon = navisensIndoorLocationProvider.getLastLocation().getLongitude();
+            currLat = Double.toString(lat);
+            currLon = Double.toString(lon);
+            currentLat.setText(currLat);
+            currentLon.setText(currLon);
+            if(!is2ndtrolley) {
+                dbLat1.setValue(lat);
+                dbLon1.setValue(lon);
+            }
+            else{
+                dbLat2.setValue(lat);
+                dbLon2.setValue(lon);
+            }
+        }
     }
 
     protected void getSharedLocation(){
@@ -216,23 +174,12 @@ public class MapActivity extends AppCompatActivity{
     }
 
     private void requestLocationPermission() {
-        if ((ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)&& ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+        if ((ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+                && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION_PERMISSION);
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
-        } else {
+            } else {
             setupLocationProvider();
-            apiCallback = new ApiCallback<Boolean>() {
-                @Override
-                public void onSuccess(Boolean aBoolean) {
-
-                }
-
-                @Override
-                public void onFailure(Throwable throwable) {
-
-                }
-            };
-            mapwizePlugin.grantAccess("b9b89e3f7430db89", apiCallback);
         }
     }
 
@@ -279,93 +226,15 @@ public class MapActivity extends AppCompatActivity{
         mapView.onSaveInstanceState(outState);
     }
 
-    private void handleParsedUrl(final ParsedUrlObject parsedUrlObject) {
-        if (parsedUrlObject.getAccessKey() != null) {
-            Api.getAccess(parsedUrlObject.getAccessKey(), new ApiCallback<Boolean>() {
-                @Override
-                public void onSuccess(Boolean access) {
-                    mapwizePlugin.refresh(new MapwizePlugin.OnAsyncTaskReady() {
-                        @Override
-                        public void ready() {
-                            Handler uiHandler = new Handler(Looper.getMainLooper());
-                            Runnable runnable = new Runnable() {
-                                @Override
-                                public void run() {
-                                    handleParsedUrl(parsedUrlObject);
-                                }
-                            };
-                            uiHandler.post(runnable);
-
-                            ApiFilter apiFilter = new ApiFilter.Builder().build();
-                            Api.getVenues(apiFilter, new ApiCallback<List<Venue>>() {
-                                @Override
-                                public void onSuccess(final List<Venue> object) {
-                                    new Handler(Looper.getMainLooper()).post(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            mapwizeLocationProvider.setVenues(object);
-                                            mapwizeLocationProvider.checkVenueForIndoorLocationActivation();
-                                        }
-                                    });
-                                }
-
-                                @Override
-                                public void onFailure(Throwable t) {
-
-                                }
-                            });
-                        }
-                    });
-                }
-
-                @Override
-                public void onFailure(Throwable t) {
-                    if (t != null) {
-                        t.printStackTrace();
-                    }
-                }
-            });
-            return;
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if(data!=null) {
+            String[] rawLatQR = data.getStringExtra("url").split(",");
+            Double latQR = Double.parseDouble(rawLatQR[0]);
+            Double lonQR = Double.parseDouble(rawLatQR[1]);
+            navisensIndoorLocationProvider.setLocFromQR(latQR, lonQR);
         }
-
-        if (parsedUrlObject.getIndoorLocation() != null) {
-            if (mapwizeLocationProvider != null) {
-//                mapwizeLocationProvider.defineLocation(parsedUrlObject.getIndoorLocation());
-                navisensIndoorLocationProvider.setIndoorLocation(parsedUrlObject.getIndoorLocation());
-            }
-            else {
-                lastLocation = parsedUrlObject.getIndoorLocation();
-            }
-        }
-
-        if (parsedUrlObject.getLanguage() != null) {
-            mapwizePlugin.setPreferredLanguage(parsedUrlObject.getLanguage());
-        }
-
-        if (parsedUrlObject.getUniverse() != null) {
-            mapwizePlugin.setUniverseForVenue(parsedUrlObject.getUniverse(), null);
-        }
-
-        Double zoom = parsedUrlObject.getZoom();
-        LatLngBounds bounds = parsedUrlObject.getBounds();
-        if (bounds.getSouthWest().equals(bounds.getNorthEast())) {
-            CameraUpdate nextPosition = CameraUpdateFactory.newLatLngZoom(bounds.getSouthWest(), zoom==null?20:zoom);
-            mapboxMap.easeCamera(nextPosition);
-        }
-        else {
-            CameraUpdate nextPosition = CameraUpdateFactory.newLatLngBounds(bounds, 10);
-            CameraPosition nextCameraPosition = nextPosition.getCameraPosition(this.mapboxMap);
-            if (nextCameraPosition != null && nextCameraPosition.zoom < 16) {
-                nextPosition = CameraUpdateFactory.newLatLngZoom(nextCameraPosition.target, 16);
-            }
-            if (nextCameraPosition != null && zoom != null) {
-                nextPosition = CameraUpdateFactory.newLatLngZoom(nextCameraPosition.target, zoom);
-            }
-            mapboxMap.easeCamera(nextPosition);
-        }
-        if (parsedUrlObject.getFloor() != null) {
-            mapwizePlugin.setFloor(parsedUrlObject.getFloor());
-        }
+        //cari cara buat integrasi troli kedua dari hasil scan
     }
-
 }
