@@ -2,8 +2,6 @@ package io.indoorlocation.navisens;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.util.Log;
-import android.widget.TextView;
 
 import com.navisens.motiondnaapi.MotionDna;
 import com.navisens.motiondnaapi.MotionDnaApplication;
@@ -37,12 +35,14 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
     public double longitude = 0.0;
 
     private String room = "m2a", room2 = "m2a2";
-    private String host = "0.0.0.0";
+    private String host = "192.168.1.102";
     private String port = "6666";
     private String lat, lon;
 
     Hashtable<String, MotionDna> networkUsers = new Hashtable<String, MotionDna>();
     Hashtable<String, Double> networkUsersTimestamps = new Hashtable<String, Double>();
+
+    public Map<String, MotionDna> payload;
 
     public String sharedLoc;
     /**
@@ -222,8 +222,5 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
     public void onIndoorLocationChange(IndoorLocation indoorLocation) {
         setIndoorLocation(indoorLocation);
         dispatchIndoorLocationChange(indoorLocation);
-
-        double latitude = indoorLocation.getLatitude();
-        double longitude = indoorLocation.getLongitude();
     }
 }
