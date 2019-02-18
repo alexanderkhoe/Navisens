@@ -8,20 +8,21 @@ import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.mapbox.mapboxsdk.Mapbox;
+import com.mapbox.mapboxsdk.annotations.MarkerOptions;
+import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.navisens.motiondnaapi.MotionDna;
-import com.navisens.motiondnaapi.MotionDnaInterface;
 
-import java.util.Map;
-import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -32,6 +33,8 @@ import io.mapwize.mapwizeformapbox.AccountManager;
 import io.mapwize.mapwizeformapbox.FollowUserMode;
 import io.mapwize.mapwizeformapbox.MapOptions;
 import io.mapwize.mapwizeformapbox.MapwizePlugin;
+import io.mapwize.mapwizeformapbox.Marker;
+import io.mapwize.mapwizeformapbox.model.LatLngFloor;
 import io.mapwize.mapwizeformapbox.model.Venue;
 import me.dm7.barcodescanner.zxing.ZXingScannerView;
 
@@ -43,6 +46,10 @@ public class MapActivity extends AppCompatActivity{
     private NavisensIndoorLocationProvider navisensIndoorLocationProvider;
     private static final int REQUEST_LOCATION_PERMISSION = 1;
     private static final int REQUEST_CAMERA_PERMISSION = 1;
+
+    private Double shareLat;
+    private Double shareLon;
+
     private String currLat;
     private String currLon;
 
@@ -63,9 +70,11 @@ public class MapActivity extends AppCompatActivity{
 
     private FirebaseDatabase mFirebaseDatabase;
     private DatabaseReference dbLat1, dbLon1, dbLat2, dbLon2, user1, user2, trolleyLat1, trolleyLon1, trolleyLat2, trolleyLon2;
+    private DatabaseReference trolleyID1, trolleyID2;
     protected boolean is2ndtrolley = false, is1stTrolley = false;
 
-    private Map<String, String> payload;
+    private Marker trolleyMarker;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -89,7 +98,9 @@ public class MapActivity extends AppCompatActivity{
         trolleyLon2 = mFirebaseDatabase.getReference().child("troli2").child("currentLon");
         user1 = mFirebaseDatabase.getReference().child("troli1").child("connectedTo");
         user2 = mFirebaseDatabase.getReference().child("troli2").child("connectedTo");
-        is1stTrolley = true;
+        trolleyID1 = mFirebaseDatabase.getReference().child("troli1").child("trolleyID");
+        trolleyID2 = mFirebaseDatabase.getReference().child("troli2").child("trolleyID");
+        is1stTrolley=true;
         mapView = findViewById(R.id.mapview);
         mapView.onCreate(savedInstanceState);
         mapView.setStyleUrl(DemoApplication.MAPWIZE_STYLE_URL_BASE + AccountManager.getInstance().getApiKey());
@@ -158,10 +169,14 @@ public class MapActivity extends AppCompatActivity{
                 String[] parts = LatLon.split(" ");
                 getLat = parts[0];
                 getLon = parts[1];
-                double shareLat = Double.parseDouble(getLat);
-                double shareLon = Double.parseDouble(getLon);
+                shareLat = Double.parseDouble(getLat);
+                shareLon = Double.parseDouble(getLon);
                 sharedLat.setText(getLat);
                 sharedLon.setText(getLon);
+                if(trolleyMarker!=null){
+                    mapwizePlugin.removeMarker(trolleyMarker);
+                }
+                trolleyMarker = mapwizePlugin.addMarker(new LatLngFloor(new LatLng(shareLat, shareLon)));
                 if(is1stTrolley&&!is2ndtrolley){
                     trolleyLat1.setValue(shareLat);
                     trolleyLon1.setValue(shareLon);
@@ -181,6 +196,40 @@ public class MapActivity extends AppCompatActivity{
         navisensIndoorLocationProvider = new NavisensIndoorLocationProvider(getApplicationContext(),
                 DemoApplication.NAVISENS_API_KEY, manualIndoorLocationProvider);
         mapwizePlugin.setLocationProvider(navisensIndoorLocationProvider);
+        //value event listenernya di sini karena kalau di onCreate, malah error karena navisens belom selesai initialize
+        //kalau di sini, navisensnya udah selesai initialize, dan dah bisa dipake
+        trolleyID1.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if(!navisensIndoorLocationProvider.trolleyDeviceID.equals("")) {
+                    if (navisensIndoorLocationProvider.trolleyDeviceID.equals(dataSnapshot.getValue(String.class))) {
+                        is1stTrolley = true;
+                        is2ndtrolley = false;
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
+        trolleyID2.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if(!navisensIndoorLocationProvider.trolleyDeviceID.equals("")) {
+                    if (navisensIndoorLocationProvider.trolleyDeviceID.equals(dataSnapshot.getValue(String.class))) {
+                        is1stTrolley = false;
+                        is2ndtrolley = true;
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
     }
 
     @Override
@@ -239,6 +288,12 @@ public class MapActivity extends AppCompatActivity{
     protected void onDestroy() {
         super.onDestroy();
         mapView.onDestroy();
+        if(is1stTrolley&&!is2ndtrolley){
+            user1.setValue("");
+        }
+        else if(!is1stTrolley&&is2ndtrolley){
+            user2.setValue("");
+        }
     }
 
     @Override
@@ -247,33 +302,30 @@ public class MapActivity extends AppCompatActivity{
         mapView.onSaveInstanceState(outState);
     }
 
-    boolean isDouble(String str) {
-        try {
-            Double.parseDouble(str);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
-    }
+
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if(data!=null) {
-            if(!data.getStringExtra("url").equals("Troli2")&&!data.getStringExtra("url").equals("Troli1")) {
+            String val = data.getStringExtra("url");
+            if(!val.equals("Troli2")&&!val.equals("Troli1")) {
                 String[] rawLatQR = data.getStringExtra("url").split(",");
                 Double latQR = Double.parseDouble(rawLatQR[0]);
                 Double lonQR = Double.parseDouble(rawLatQR[1]);
                 navisensIndoorLocationProvider.setLocFromQR(latQR, lonQR);
             }
-            else if(data.getStringExtra("url").equals("Troli2")){
+            else if(val.equals("Troli2")){
                 is2ndtrolley=true;
                 is1stTrolley=false;
-                navisensIndoorLocationProvider.start2ndUDP();
+                user2.setValue(navisensIndoorLocationProvider.getMotionDna().getDeviceID());
+                navisensIndoorLocationProvider.startingUDP(2);
             }
-            else if(data.getStringExtra("url").equals("Troli1")){
+            else if(val.equals("Troli1")){
                 is1stTrolley=true;
                 is2ndtrolley=false;
+                user1.setValue(navisensIndoorLocationProvider.getMotionDna().getDeviceID());
+                navisensIndoorLocationProvider.startingUDP(1);
             }
         }
     }

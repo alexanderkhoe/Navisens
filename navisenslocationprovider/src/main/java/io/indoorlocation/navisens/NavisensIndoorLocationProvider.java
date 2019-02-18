@@ -2,6 +2,7 @@ package io.indoorlocation.navisens;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.provider.Settings;
 
 import com.navisens.motiondnaapi.MotionDna;
 import com.navisens.motiondnaapi.MotionDnaApplication;
@@ -45,6 +46,7 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
     public Map<String, MotionDna> payload;
 
     public String sharedLoc;
+    public String trolleyDeviceID = "";
     /**
      * Create a new instance of Navisens location provider
      * @param context
@@ -133,8 +135,12 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
         }
     }
 
-    public void start2ndUDP(){
-        mMotionDna.setUDPRoom(room2);
+    public void startingUDP(int choose){
+        mMotionDna.stopUDP();
+        switch(choose){
+            case 1: mMotionDna.startUDP(room, host, port);
+            case 2: mMotionDna.startUDP(room2, host, port);
+        }
     }
 
     @Override
@@ -165,6 +171,7 @@ public class NavisensIndoorLocationProvider extends IndoorLocationProvider imple
     @Override
     public void receiveNetworkData(MotionDna motionDna) {
         networkUsers.put(motionDna.getID(),motionDna);
+        trolleyDeviceID = motionDna.getID();
         double timeSinceBootSeconds = elapsedRealtime() / 1000.0;
         networkUsersTimestamps.put(motionDna.getID(),timeSinceBootSeconds);
         List<String> toRemove = new ArrayList();
