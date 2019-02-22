@@ -53,16 +53,15 @@ public class MapActivity extends AppCompatActivity{
     private String currLat;
     private String currLon;
 
-    public TextView currentLat;
-    public TextView currentLon;
+//    public TextView currentLat;
+//    public TextView currentLon;
+//    private TextView sharedLat;
+//    private TextView sharedLon;
 
     private String getLat;
     private String getLon;
 
     private double lat, lon;
-
-    private TextView sharedLat;
-    private TextView sharedLon;
 
     MotionDna.LocationStatus locationStat1 = MotionDna.LocationStatus.NAVISENS_INITIALIZED;
 
@@ -82,10 +81,10 @@ public class MapActivity extends AppCompatActivity{
         setContentView(R.layout.activity_map);
         mScannerView = findViewById(R.id.scanner);
         mScannerView.setVisibility(View.GONE);
-        currentLat = findViewById(R.id.currentLat);
-        currentLon = findViewById(R.id.currentLon);
-        sharedLat = findViewById(R.id.currSharedLat);
-        sharedLon = findViewById(R.id.currSharedLon);
+//        currentLat = findViewById(R.id.currentLat);
+//        currentLon = findViewById(R.id.currentLon);
+//        sharedLat = findViewById(R.id.currSharedLat);
+//        sharedLon = findViewById(R.id.currSharedLon);
         Button camBtn = findViewById(R.id.btn_cam);
         mFirebaseDatabase = FirebaseDatabase.getInstance();
         dbLat1 = mFirebaseDatabase.getReference().child("troli1").child("userLat");
@@ -130,7 +129,7 @@ public class MapActivity extends AppCompatActivity{
 
                 });
             }
-        }, 0, 1000);
+        }, 0, 2500);
         camBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -139,6 +138,8 @@ public class MapActivity extends AppCompatActivity{
             }
         });
     }
+//    cari angle dari scan, jarak scan, dan lamanya scan berapa
+//    bisa dimasukin ke paper
 
     protected void getCurrLocation(){
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -149,8 +150,8 @@ public class MapActivity extends AppCompatActivity{
             double lon = navisensIndoorLocationProvider.getLastLocation().getLongitude();
             currLat = Double.toString(lat);
             currLon = Double.toString(lon);
-            currentLat.setText(currLat);
-            currentLon.setText(currLon);
+//            currentLat.setText(currLat);
+//            currentLon.setText(currLon);
             if(!is2ndtrolley&&is1stTrolley) {
                 dbLat1.setValue(lat);
                 dbLon1.setValue(lon);
@@ -171,9 +172,9 @@ public class MapActivity extends AppCompatActivity{
                 getLon = parts[1];
                 shareLat = Double.parseDouble(getLat);
                 shareLon = Double.parseDouble(getLon);
-                sharedLat.setText(getLat);
-                sharedLon.setText(getLon);
-                if(trolleyMarker!=null){
+//                sharedLat.setText(getLat);
+//                sharedLon.setText(getLon);
+                if (trolleyMarker != null) {
                     mapwizePlugin.removeMarker(trolleyMarker);
                 }
                 trolleyMarker = mapwizePlugin.addMarker(new LatLngFloor(new LatLng(shareLat, shareLon)));
@@ -196,8 +197,6 @@ public class MapActivity extends AppCompatActivity{
         navisensIndoorLocationProvider = new NavisensIndoorLocationProvider(getApplicationContext(),
                 DemoApplication.NAVISENS_API_KEY, manualIndoorLocationProvider);
         mapwizePlugin.setLocationProvider(navisensIndoorLocationProvider);
-        //value event listenernya di sini karena kalau di onCreate, malah error karena navisens belom selesai initialize
-        //kalau di sini, navisensnya udah selesai initialize, dan dah bisa dipake
         trolleyID1.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {

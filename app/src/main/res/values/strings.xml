@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Navisens provider demo</string>
+    <string name="app_name">Smart Trolley Application</string>
     <string name="latitude">Latitude :</string>
     <string name="longitude">Longitude :</string>
     <string name="trolley_longitude">Trolley Longitude :</string>
